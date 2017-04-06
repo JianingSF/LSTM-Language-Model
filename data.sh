@@ -1,12 +1,8 @@
 datadir="../RNNLM_Penn/"
 
-#vocSize="10000"
-
-#put train, valid and test data together into allData.txt to build vocabulary list
+#use allData.txt to generate vocabulary list
 cat $datadir/allData.txt | awk '{for (i=1;i<=NF;i++){print $i}}' | sort | uniq -c | sort -nrk1 > $datadir/counts.txt
-
 echo -e '(eee)' > $datadir/voc.txt
-
 awk '{print $2}' $datadir/counts.txt >> $datadir/voc.txt
 
 #map word into integer for vocabulary
