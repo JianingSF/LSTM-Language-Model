@@ -16,7 +16,7 @@ This software implements multi-layer Long-Short Term Memory (LSTM) of Recurrent 
 Install Torch 7 with cunn package and Python 2.7 or higher.
 * To execute, call `bash data.sh` to generate vocabulary (10000 in total) and combine original text file into one big chunk of text file in order to do batch training after.
 * Then call `python data4RNN.py` to convert .txt file into .npy file that is numpy format for Torch, and convert data from word into index based at the same time.
-* Finally, call `bash Training.sh` (call `Training.lua` inside) to train model.
+* Finally, call `bash Training.sh` (call `th Training.lua` inside) to train model.
 Users need pass file location to run.
 
 **Acknowledgements**
