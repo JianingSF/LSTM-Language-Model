@@ -1,4 +1,4 @@
-datadir="/Users/tang_li/Desktop/RNNLM_Penn/"
+datadir="../RNNLM_Penn/"
 
 #vocSize="10000"
 
