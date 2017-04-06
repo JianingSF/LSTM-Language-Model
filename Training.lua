@@ -1,6 +1,5 @@
-
 require "env"
-require 'nn'      -- provides a normalization operator
+require 'nn'      
 require 'nngraph'
 require 'io'
 require 'cunn'
@@ -31,17 +30,12 @@ end
 
 function create_network(layers, wordEmbedding_size, rnn_size,input_size,output_size,vocSize, useCuda)
   local useCuda = 1
-
   print ('useCuda ' ..useCuda.. '\n')
-  
   local x                = nn.Identity()()
   --local y                = nn.Identity()()
   local prev_s           = nn.Identity()()
-  
-  
   local i                = {[0] = nn.Linear(wordEmbedding_size, rnn_size)(nn.LookupTable(input_size, wordEmbedding_size)(x))}
   --local i                = {[0] = nn.Linear(input_size, rnn_size)(x) } 
-  
   local next_s           = {}
   local splitted         = { prev_s:split(2 * layers) }
   for layer_idx = 1, layers do
@@ -54,10 +48,8 @@ function create_network(layers, wordEmbedding_size, rnn_size,input_size,output_s
   end
   local h2y              = nn.Linear(rnn_size, output_size)
   local pred             = nn.LogSoftMax()(h2y(i[layers]))
-  --local err              = MaskedLoss()({pred, y})
   local module           = nn.gModule({x, prev_s},
                                       {pred, nn.Identity()(next_s)})
-  --module:getParameters():uniform(-params.init_weight, params.init_weight)
   print ('useCuda ' ..useCuda.. '\n')
   
   if useCuda > 0 then
@@ -88,9 +80,9 @@ function setup(seq_length, batch_size,layers, wordEmbedding_size, rnn_size,input
       else
         model.s[j][d] = torch.zeros(batch_size, rnn_size)
       end
-
     end
   end
+	
   for d = 1, 2 * layers do
     model.start_s[d] = torch.zeros(batch_size, rnn_size)
     model.ds[d] = torch.zeros(batch_size, rnn_size)
@@ -130,14 +122,12 @@ function fp_bp(input, target, model, max_grad_norm, seq_length)
   --fp
   local tot_cost = 0
   copy_table(model.s[0], model.start_s)
-
   for i = 1, seq_length do
     local pred, state  = unpack(model.rnn_train:forward({input[i],model.s[i - 1]}))
     copy_table(model.s[i],state)
-  end
-  
+  end 
   copy_table(model.start_s, model.s[seq_length])
-  --
+	
   --bp
   model.paramdx:zero()
   reset_ds(model)
@@ -158,22 +148,17 @@ function fp_bp(input, target, model, max_grad_norm, seq_length)
 	shrink_factor = max_grad_norm / norm_dw
     model.paramdx:mul(shrink_factor)
   end
-  
+ 
   return tot_cost/seq_length
 end
 
 
 function main()
-
-	local cmd = torch.CmdLine()
-    --cmd:option('-weightDecay', 0, 'weightDecay')
-    --cmd:option('-momentum', 0, 'momentum')
-    --cmd:option('-learningRateDecay', 0, 'learningRateDecay')
+    local cmd = torch.CmdLine()
     
     cmd:option('-batch_size', 100, 'batch_size')
     cmd:option('-n_epochs', 2, 'n_epochs')
     cmd:option('-seq_length', 20, 'seq_length')
-    --cmd:option('-max_day', 3000, 'max_day')
     cmd:option('-inputs_size', 654, 'dimension of input feature')
     cmd:option('-output_size', 654, 'output class')
     
@@ -190,21 +175,16 @@ function main()
     cmd:option('-max_grad_norm', 5, 'max_grad_norm')
     cmd:option('-useCuda', 1, 'useCuda')
     
-    cmd:option('-trainDataDir', '/Users/tang_li/Desktop/RNNLM_Penn/trainData4RNN.npy', 'trainDataDir')
-    cmd:option('-validDataDir', '/Users/tang_li/Desktop/RNNLM_Penn/validData4RNN.npy', 'trainDataDir')
-    cmd:option('-testDataDir', '/Users/tang_li/Desktop/RNNLM_Penn/testData4RNN.npy', 'trainDataDir')
-
-    --cmd:option('-saved_model', 'test','saved_model')
+    cmd:option('-trainDataDir', '../RNNLM_Penn/trainData4RNN.npy', 'trainDataDir')
+    cmd:option('-validDataDir', '../RNNLM_Penn/validData4RNN.npy', 'trainDataDir')
+    cmd:option('-testDataDir', '../RNNLM_Penn/testData4RNN.npy', 'trainDataDir')
   
-	cmd:text()
-	local opt = cmd:parse(arg)
-	
-	torch.manualSeed(777)
-	
-	local batch_size=opt.batch_size
-	local n_epochs=opt.n_epochs
-	local seq_length=opt.seq_length
-	--local max_day = opt.max_day
+    cmd:text()
+    local opt = cmd:parse(arg)
+    torch.manualSeed(777)
+    local batch_size=opt.batch_size
+    local n_epochs=opt.n_epochs
+    local seq_length=opt.seq_length
     local inputs_size = opt.inputs_size
     local output_size = opt.output_size
     local wordEmbedding_size = opt.wordEmbedding_size
@@ -216,52 +196,42 @@ function main()
     local learningRateReduce = opt.learningRateReduce
     local min_gain_ratio = opt.min_gain_ratio
     local min_learningRate = opt.min_learningRate
-    
     local max_grad_norm = opt.max_grad_norm
     local useCuda = opt.useCuda
-    
-    
-    
+
     local trainDataDir = opt.trainDataDir 
     local validDataDir = opt.validDataDir
     local testDataDir = opt.testDataDir
-    --local saved_model = opt.saved_model
-    
-    local isShuffleData = 1
--------------------------------------------------------------------
+  
 	
-        showGPUMemory("Before setup")
-	local model = setup(seq_length, batch_size,layers, wordEmbedding_size,rnn_size,inputs_size, output_size,useCuda,init_weight)
-        showGPUMemory("After setup")
+    showGPUMemory("Before setup")
+    local model = setup(seq_length, batch_size,layers, wordEmbedding_size,rnn_size,inputs_size, output_size,useCuda,init_weight)
+    showGPUMemory("After setup")
   
-	--reset_state(model)
+    --reset_state(model)
   
-	local step = 0
-	local epoch = 0
-
-	local start_time = torch.tic()
-	print("Starting training." ..'\n')
-	epoch = 0
+    local step = 0
+    local epoch = 0
+    local start_time = torch.tic()
+    print("Starting training." ..'\n')
+    epoch = 0
     train_done = false
     pre_xent4Train = 0.01
 	
     local time = sys.clock()
     
-	local trainArray = npy4th.loadnpy(trainDataDir)
-	local n_train_batches = math.floor(trainArray:size(1)/(batch_size*seq_length))-1
-	trainArray:resize(batch_size, trainArray:size(1)/batch_size)
+    local trainArray = npy4th.loadnpy(trainDataDir)
+    local n_train_batches = math.floor(trainArray:size(1)/(batch_size*seq_length))-1
+    trainArray:resize(batch_size, trainArray:size(1)/batch_size)
 	
-	local validArray = npy4th.loadnpy(validDataDir)
-	local n_valid_batches = math.floor(validArray:size(1)/(batch_size*seq_length))-1
-	validArray:resize(batch_size, validArray:size(1)/batch_size)
+    local validArray = npy4th.loadnpy(validDataDir)
+    local n_valid_batches = math.floor(validArray:size(1)/(batch_size*seq_length))-1
+    validArray:resize(batch_size, validArray:size(1)/batch_size)
 	
-	--training starts
-	
+    --training starts
     while(epoch < n_epochs) and (not train_done) do
         epoch=epoch+1
-        
         for t = 1,n_train_batches do
-
                 if train_done == true then
                     break
                 end
@@ -271,7 +241,6 @@ function main()
                 input = input:transpose(1,2)
                 target = target:transpose(1,2)
                 
-                --training
                 function eval_training(paramx_)
                 	local cost = fp_bp(input,target,model,max_grad_norm, seq_length)
                 	return cost, model.paramdx
@@ -279,40 +248,35 @@ function main()
                 local _, cost = optim.sgd(eval_training, model.paramx, {learningRate=learningRate}, {})
                 if t==1 then
                     showGPUMemory("first mini batch ")
-                end
-                
+                end  
         end
 
-		print ('Learning rate ' ..learningRate.. ' at epoch '.. epoch ..'\n')
-		--check error rate on training set after each epoch
-		showGPUMemory("before test ")
-		local xent4Train, perplexity4Train = valid_test(model, trainArray, n_train_batches, seq_length, batch_size)
-		showGPUMemory("after test ")
-		print ('xent on training set ' ..xent4Train.. ' at epoch '.. epoch ..'\n')
-		print ('perplexity on training set ' ..perplexity4Train.. ' at epoch '.. epoch ..'\n')
+	print ('Learning rate ' ..learningRate.. ' at epoch '.. epoch ..'\n')
+	--check error rate on training set after each epoch
+	showGPUMemory("before test ")
+	local xent4Train, perplexity4Train = valid_test(model, trainArray, n_train_batches, seq_length, batch_size)
+	showGPUMemory("after test ")
+	print ('xent on training set ' ..xent4Train.. ' at epoch '.. epoch ..'\n')
+	print ('perplexity on training set ' ..perplexity4Train.. ' at epoch '.. epoch ..'\n')
                 
         --check error rate on validation set after each epoch
         local xent4Valid, perplexity4Valid = valid_test(model, validArray, n_valid_batches, seq_length, batch_size)
-		print ('xent on validation set ' ..xent4Valid.. ' at epoch '.. epoch ..'\n')
-		print ('perplexity on validation set ' ..perplexity4Valid.. ' at epoch '.. epoch ..'\n')
+	print ('xent on validation set ' ..xent4Valid.. ' at epoch '.. epoch ..'\n')
+	print ('perplexity on validation set ' ..perplexity4Valid.. ' at epoch '.. epoch ..'\n')
         
         
     	--adjust learning rate
-		if (pre_xent4Train - xent4Train)/pre_xent4Train < min_gain_ratio and epoch ~= 1 then
-			learningRate=learningRate*learningRateReduce
-		end
-		if learningRate < min_learningRate then
+	if (pre_xent4Train - xent4Train)/pre_xent4Train < min_gain_ratio and epoch ~= 1 then
+		learningRate=learningRate*learningRateReduce
+	end
+	if learningRate < min_learningRate then
         	train_done = true
         end
-        
-		pre_xent4Train = xent4Train
-    
-    
+	pre_xent4Train = xent4Train
     end
 
     time = sys.clock() - time
     print ('Time used in training ' ..time/60 .. ' mins. Training is over. \n')
-
 end
 
 function validation(validFileTable, fileInTotal4Valid, model, isShuffleData, seq_length, max_day, ninputs,batch_size)
