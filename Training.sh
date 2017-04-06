@@ -1,5 +1,5 @@
 #!/bin/sh -ef
-scripts="/Users/tang_li/Desktop/RNNLM_Penn/"
+scripts="../RNNLM_Penn/"
 
 trainDataDir=$scripts/trainData4RNN.npy
 validDataDir=$scripts/validData4RNN.npy
